@@ -23,6 +23,10 @@
 
 ## 你有没有这些痛？
 
+<p align="center">
+  <img src="assets/screenshot-1.jpg" width="600" alt="你的 AI Agent 真的能用吗？" />
+</p>
+
 | 痛点 | 现在发生了什么 | 严重程度 |
 |------|---------------|---------|
 | "我电脑上能跑" | Agent 通过了你的测试 query，一到真实用户就崩 | 生产 P0 |
@@ -32,6 +36,10 @@
 | "Brand A 的数据跑到 Brand B 的会话里了" | 多租户 Agent 跨会话污染，客户先发现 | 沉默 P0 |
 
 **如果以上有一条听着耳熟——AgentLens 就是给你做的。**
+
+<p align="center">
+  <img src="assets/screenshot-2.jpg" width="600" alt="这些场景你遇到过吗？" />
+</p>
 
 ---
 
@@ -71,7 +79,7 @@ python -m src.cli --dry-run
 - **Sheet 3 · Blocker 分析**：每个 blocker case 的根因 + 修复建议
 
 <p align="center">
-  <img src="assets/screenshot-6.jpg" width="600" alt="dry-run 终端输出 + 报告预览" />
+  <img src="assets/screenshot-5.jpg" width="600" alt="3 行命令出结果" />
 </p>
 
 > 要评测你自己的 Agent？实现 `AgentRunner` 协议，传给 `SixLayerEvaluator` 即可。
@@ -99,7 +107,7 @@ python -m src.cli --dry-run
 **Blocker 门禁**：L1-L5 任一层得分为 0，直接 hard fail——不管 L6 稳定性多好都不放过。防止"好看但没用"的 Agent 混过去。
 
 <p align="center">
-  <img src="assets/screenshot-5.jpg" width="500" alt="6 层评测架构图" />
+  <img src="assets/screenshot-6.jpg" width="500" alt="6 层评测架构图" />
 </p>
 
 | 层级 | 检查内容 | 为什么需要这层 |
@@ -131,10 +139,6 @@ L7  correct                 → 正常工作
 每个级别，对应不同的修复建议，这就是它跟其他评测工具的根本区别。
 
 ### 真实案例
-
-<p align="center">
-  <img src="assets/screenshot-1.jpg" width="600" alt="痛点场景" />
-</p>
 
 **Case 1：颜色静默丢失**
 ```
@@ -192,10 +196,6 @@ Agent 返回: "As an AI assistant, I was instructed to help you..."
 | `interface_exception` | 1 |
 | `scene_missing` | 1 |
 | `llm_decomposition_error` | 1 |
-
-<p align="center">
-  <img src="assets/screenshot-2.jpg" width="600" alt="行业现状痛点场景" />
-</p>
 
 ---
 

@@ -9,6 +9,10 @@ Inspect your Agent like a CT scan — 6 layers deep, 8-level error attribution, 
 </div>
 
 <p align="center">
+  <b>English</b> · <a href="./README_CN.md">中文</a>
+</p>
+
+<p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
   <img alt="Tests" src="https://img.shields.io/badge/tests-15%20passed-success?style=flat-square" />

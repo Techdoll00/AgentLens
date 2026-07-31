@@ -1,289 +1,303 @@
 <div align="center">
 
-# 🧪 Agent Eval Tool
+# AgentLens
 
-**A 6-layer evaluation framework for multi-stage AI Agents — battle-tested at Style3D**
+**Six-layer x-ray for AI Agent quality**
+
+Inspect your Agent like a CT scan — 6 layers deep, 8-level error attribution, one-click report.
 
 </div>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img alt="Status" src="https://img.shields.io/badge/status-production-success?style=flat-square" />
-  <img alt="Rounds" src="https://img.shields.io/badge/regression%20rounds-60-brightgreen?style=flat-square" />
-  <img alt="Failures" src="https://img.shields.io/badge/failures-0-success?style=flat-square" />
-  <img alt="Speedup" src="https://img.shields.io/badge/speedup-30x-blue?style=flat-square" />
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square" />
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-15%20passed-success?style=flat-square" />
+  <img alt="Pass Rate" src="https://img.shields.io/badge/pass%20rate-87.5%25-success?style=flat-square" />
+  <img alt="Dry Run" src="https://img.shields.io/badge/dry--run-ready-orange?style=flat-square" />
 </p>
 
 ---
 
-## Why this exists
+## You have these pains?
 
-At Style3D I worked on a multi-stage Agent called **Style-Claw** — it takes a customer's PDF, runs through 5 stages (vision → brand enrichment → memory → retrieval → PPT generation) and outputs a sales proposal.
+| Pain | What happens now | How bad is it |
+|------|-------------------|---------------|
+| "It works on my machine" | Agent passes your test queries but breaks on real users | P0 in production |
+| "Which step caused the failure?" | Agent returns wrong answer, team argues for hours about where it broke | 1-2 days of triage per release |
+| "Did this prompt change break anything?" | Nobody knows — you re-test manually every time | Fear of iteration |
+| "Prompt leaked again?!" | System prompt or fallback messages exposed to users | Trust lost instantly |
+| "Brand A's data showed up in Brand B's session" | Cross-session contamination in multi-tenant Agents | Silent P0, caught by customer |
 
-Every time we changed a prompt or a retrieval strategy, the team would ask: *"did this break anything?"* — and the only answer was *"let me chat with it for a few minutes and see."* That's not engineering. That's gambling.
-
-**So I built this.** It turned "1-2 days of manual triage" into "minutes of automated report" and was used as the gating mechanism for **60 rounds of pre-release regression testing** — with **0 failures, 0 fallbacks, 0 prompt leaks**.
-
----
-
-## The 6-layer evaluation framework
-
-This isn't a generic "accuracy" metric. It's designed specifically for **multi-stage, tool-using, memory-bearing business Agents** — the kind that fail in ways single-turn chatbots never do.
-
-| Layer | What it checks | Why it matters |
-|------:|----------------|----------------|
-| **L1 Task completion** | Did the Agent actually finish the job? | A pretty PPT for the wrong customer is worse than no PPT |
-| **L2 Stage trajectory** | Did it hit the right stages in the right order? | Multi-stage Agents silently skip steps; this catches it |
-| **L3 Intermediate card quality** | Were the intermediate cards (vision output, retrieval results) right? | Garbage in → garbage out; trace failures to their source |
-| **L4 State consistency** | Session isolation, PPT asset binding, memory identity | **This was the biggest source of P0 bugs at Style3D** |
-| **L5 Safety boundaries** | Prompt leakage, fallback exposure, sensitive data | One prompt leak in production = a really bad day |
-| **L6 UX stability** | Latency, response format, error messages | "Technically correct but unusable" is still a failure |
+**If any of this sounds familiar — AgentLens is for you.**
 
 ---
 
-## The 40-item golden test set
+## What is AgentLens?
 
-Coverage isn't "we tested 40 random prompts." It's a **deliberately adversarial** set designed to catch the specific failure modes I kept seeing in production.
-
-| Category | Count | What it tests |
-|----------|------:|---------------|
-| Happy path | 10 | Baseline — does it work at all? |
-| Ambiguity recognition | 6 | Does it ask for clarification vs. guessing wrong? |
-| Brand / memory sensitivity | 6 | Does it confuse Customer A's brand with Customer B? |
-| Retrieval governance | 10 | NOT-logic, color-material disambiguation ("麻灰" vs "麻"), zero-result handling |
-| State continuity | 8 | Multi-turn state, session switching, asset binding |
-
-Each case includes: **expected stage graph + core checkpoints + blocker conditions**.
-
----
-
-## The 8-level error attribution engine
-
-When an Agent fails, "it failed" isn't useful. You need to know *where in the chain* it failed — because the fix is completely different.
-
-```python
-# The attribution waterfall — first match wins
-ATTRIBUTION_LEVELS = [
-    ("interface_exception",  # L0: API timeout, model 5xx
-     "The Agent never even got to think"),
-    ("llm_decomposition_error",  # L1: LLM misread the query
-     "Vision/understanding stage produced garbage"),
-    ("color_loss",  # L2: '深蓝' silently became '蓝'
-     "Color attribute dropped during extraction"),
-    ("percentage_loss",  # L3: '80% 棉' became '棉'
-     "Numeric attribute dropped"),
-    ("field_missing",  # L4: required field absent
-     "Required field absent from structured output"),
-    ("scene_missing",  # L5: style/scene context absent
-     "Style/scene context absent"),
-    ("correct_but_no_data",  # L6: right answer, no inventory
-     "Correct query, inventory just doesn't have it"),
-    ("correct",  # L7: actually correct
-     "Working as intended"),
-]
-```
-
-This isn't theoretical — these 8 levels came from analyzing **91+ real test cases across 4 rounds of iteration** at Style3D. Each level maps to a different fix owner (infra / prompt eng / data team / business).
-
----
-
-## Architecture
+AgentLens is a **6-layer evaluation framework** for multi-stage AI Agents. Instead of giving a single "accuracy" score, it scans your Agent layer by layer — like a CT scan — and tells you exactly *where* it breaks and *why*.
 
 ```
-agent-eval-tool/
-├── src/
-│   ├── core/
-│   │   ├── runner.py            # 6-layer evaluation runner
-│   │   ├── metrics.py           # Per-layer metric computation
-│   │   └── report.py            # xlsx report generation
-│   ├── metrics/
-│   │   ├── task_completion.py   # L1
-│   │   ├── trajectory.py        # L2 — stage graph matching
-│   │   ├── card_quality.py      # L3 — intermediate output validation
-│   │   ├── state.py             # L4 — session/asset/memory isolation
-│   │   ├── safety.py            # L5 — prompt leak / fallback detection
-│   │   └── stability.py         # L6 — latency / format / errors
-│   ├── attribution/
-│   │   └── waterfall.py         # 8-level error attribution engine
-│   └── datasets/
-│       ├── golden_set.py        # 40-item golden test set schema
-│       └── loader.py
-├── configs/
-│   ├── default.yaml
-│   ├── rules.yaml               # 8-level attribution rules (editable)
-│   └── rubric.yaml              # 0-5 scoring rubric
-├── reports/                     # generated xlsx reports
-├── examples/
-│   ├── eval_style_claw.py       # how we used it at Style3D
-│   └── eval_custom_agent.py     # how to adapt for your Agent
-└── tests/
+                    AgentLens
+                  /     |     \
+               6 layers  |   8-level attribution
+                  \     |     /
+                   \    |    /
+              ┌──────────────────┐
+              │  Evaluated Agent  │
+              │  (trajectory)    │
+              └──────────────────┘
 ```
+
+**One-liner:** Run 40 golden test cases through 6 evaluation layers, get an xlsx report with 8-level error attribution.
 
 ---
 
-## Core runner (sanitized)
+## 30-second quick start
 
-```python
-from dataclasses import dataclass, field
-from typing import List, Optional
+```bash
+git clone https://github.com/Techdoll00/AgentLens.git
+cd AgentLens
+pip install -r requirements.txt
+python -m src.cli --dry-run
+```
 
-@dataclass
-class EvalCase:
-    case_id: str
-    query: str
-    expected_stage_graph: List[str]   # e.g. ["vision", "brand", "memory", "search", "ppt"]
-    expected_response: str
-    sensitive_brand: Optional[str] = None  # for L4 brand-isolation tests
-    not_condition: Optional[str] = None    # for L3 retrieval-governance tests
+That's it. No API key needed. You'll get a 3-sheet xlsx report at `reports/eval_dry_run.xlsx`:
 
-@dataclass
-class EvalResult:
-    case_id: str
-    layer_scores: dict          # {"L1": 1.0, "L2": 0.8, "L3": 0.6, ...}
-    blocker: Optional[str]      # if set, this case is a hard fail
-    attribution: str            # one of the 8 levels
-    latency_ms: float
-    response: str
+- **Sheet 1 — Overview**: pass rate, per-layer averages, attribution histogram
+- **Sheet 2 — Case Detail**: every case scored across L1-L6, color-coded by attribution level
+- **Sheet 3 — Blocker Analysis**: root cause + suggested fix for each blocker case
 
-class SixLayerEvaluator:
-    """
-    The evaluator runs all 6 layers for every case, then applies the
-    8-level attribution waterfall to pinpoint where the failure happened.
+> The `--dry-run` uses a mock agent with realistic failure patterns. To evaluate your own Agent, implement the `AgentRunner` protocol and pass it to `SixLayerEvaluator`.
 
-    Blocker gates: if any L1-L5 score is 0, the case is a hard fail
-    regardless of other layer scores. This prevents "pretty failure" cases
-    from passing because L6 stability was fine.
-    """
-    BLOCKER_LAYERS = {"L1", "L2", "L3", "L4", "L5"}
+---
 
-    def __init__(self, agent, golden_set, attribution_rules):
-        self.agent = agent
-        self.golden_set = golden_set
-        self.attribution = attribution_rules  # loaded from rules.yaml
+## The 6-layer evaluation: what each layer does
 
-    async def run(self) -> List[EvalResult]:
-        results = []
-        for case in self.golden_set:
-            # Run the Agent end-to-end
-            agent_response = await self.agent.run(
-                query=case.query,
-                sensitive_context={"brand": case.sensitive_brand}
-            )
+```
+        ┌─────────────────┐
+   L6   │  UX Stability   │  Latency, format, reproducibility
+        ├─────────────────┤
+   L5   │    Safety       │  Prompt leak, fallback exposure, sensitive data
+        ├─────────────────┤
+   L4   │  State Isolation│  Session binding, brand contamination, memory identity
+        ├─────────────────┤  ← Biggest source of P0 bugs in production
+   L3   │  Card Quality   │  Intermediate output correctness, NOT-logic, color/numeric preservation
+        ├─────────────────┤
+   L2   │   Trajectory    │  Stage graph matching — did it hit right stages in right order?
+        ├─────────────────┤
+   L1   │ Task Completion │  Did it actually finish the job?
+        └─────────────────┘
+```
 
-            # Score each layer independently
-            scores = {
-                "L1": self._score_task_completion(agent_response, case),
-                "L2": self._score_trajectory(agent_response.stages, case.expected_stage_graph),
-                "L3": self._score_intermediate_cards(agent_response.cards, case),
-                "L4": self._score_state_isolation(agent_response, case),
-                "L5": self._score_safety(agent_response, case),
-                "L6": self._score_stability(agent_response),
-            }
+**Blocker gate**: if any L1-L5 score is 0, the case is a **hard fail** — regardless of L6. No "pretty failure" passes because the response was fast.
 
-            # Blocker gate: any blocker layer = 0 → hard fail
-            blocker = next(
-                (layer for layer in self.BLOCKER_LAYERS if scores[layer] == 0),
-                None
-            )
+| Layer | What it checks | Why this layer exists |
+|-------|----------------|-----------------------|
+| **L1** | Task completion | A pretty PPT for the wrong customer is worse than no PPT |
+| **L2** | Stage trajectory | Multi-stage Agents silently skip steps; LCS matching catches it |
+| **L3** | Card quality | Garbage in → garbage out; trace failures to their source stage |
+| **L4** | State isolation | **Cross-session contamination is silent and catastrophic** |
+| **L5** | Safety | One prompt leak = a really bad day |
+| **L6** | Stability | "Technically correct but unusable" is still a failure |
 
-            # Attribution waterfall: first matching rule wins
-            attribution = self.attribution.classify(agent_response, case)
+---
 
-            results.append(EvalResult(
-                case_id=case.case_id,
-                layer_scores=scores,
-                blocker=blocker,
-                attribution=attribution,
-                latency_ms=agent_response.latency_ms,
-                response=agent_response.text,
-            ))
-        return results
+## 8-level error attribution: "5 seconds to know where it broke"
 
-    def generate_report(self, results, output_path):
-        """Three-sheet xlsx report:
-           1. Overview (pass rate, per-layer averages, attribution histogram)
-           2. Per-case detail (color-coded by attribution level)
-           3. Blocker analysis (root cause + suggested fix per blocker)
-        """
-        ...
+When an Agent fails, "it failed" is useless. The attribution waterfall checks 8 levels in order — first match wins — because the fix owner is completely different per level:
+
+```
+L0  interface_exception     → Infra team (API timeout, 503)
+L1  llm_decomposition_error  → Prompt eng (LLM misread the query)
+L2  color_loss              → Prompt eng (深蓝 silently became 蓝)
+L3  percentage_loss         → Prompt eng (80%棉 became just 棉)
+L4  field_missing           → Data team (required field absent)
+L5  scene_missing           → Data team (style/brand context absent)
+L6  correct_but_no_data     → Business (query was right, inventory empty)
+L7  correct                 → Working as intended
+```
+
+Each level maps to a different **fix owner** and **suggested fix** — the report tells you *exactly who to escalate to*.
+
+---
+
+## How it compares
+
+| Feature | AgentLens | LangSmith | AgentBench | OpenAI Evals |
+|---------|-----------|-----------|------------|--------------|
+| **Agent trajectory scoring** | Per-step per-dimension | Tracing only | Final result only | Generic |
+| **Multi-stage stage graph** | LCS matching | Manual | No | No |
+| **State isolation (L4)** | Built-in | Manual | No | No |
+| **Safety/prompt leak** | Built-in regex + patterns | Manual | No | No |
+| **Error attribution** | 8-level waterfall | Manual | No | No |
+| **Blocker gate** | L1-L5 hard fail | No | No | No |
+| **Report format** | xlsx (3 sheets) | Web UI | JSON | JSON |
+| **Offline / self-hosted** | Yes | No (SaaS) | Yes | Yes |
+| **Free** | Yes, MIT | Paid tiers | Yes | Yes |
+| **Setup time** | 1 command (dry-run) | 30+ min | Complex | Moderate |
+
+**AgentLens is the only tool that does error attribution.** Others tell you "it failed." AgentLens tells you "it failed at level 4 because session isolation broke — fix asset binding (bind to sessionId)."
+
+---
+
+## Real cases (from dry-run report)
+
+### Case 1: Color silently dropped
+```
+Query:  "找麻灰色的面料"  (find 麻灰 colored fabric)
+Agent:  "找到了蓝色的面料"  (found blue fabric)
+
+→ L1: 0.3 (partial keywords)
+→ L3: 0.0 (color_loss detected)
+→ Attribution: L2  color_loss
+→ Fix: Add color-material disambiguation to LLM prompt (麻灰 ≠ 麻)
+```
+
+### Case 2: Stage trajectory skipped
+```
+Query:  Expected stages: [vision → brand → memory → search → ppt]
+Agent:  Actual stages:   [vision → brand]
+
+→ L2: 0.0 (missing 3 stages)
+→ Attribution: L1  llm_decomposition_error
+→ Fix: Improve LLM prompt clarity, add few-shot examples
+```
+
+### Case 3: Prompt leak
+```
+Agent response: "As an AI assistant, I was instructed to help you find items..."
+
+→ L5: 0.0 (prompt leak detected)
+→ Attribution: checking upstream
+→ Fix: Review system prompt, sanitize output
 ```
 
 ---
 
-## Sample report (anonymized)
+## Benchmark data
 
-Running `python -m src.core.runner --config configs/default.yaml` produces `reports/eval_20260730.xlsx`:
-
-### Sheet 1 · Overview
+Running `python -m src.cli --dry-run` on the 40-item golden set:
 
 | Metric | Value |
 |--------|------:|
 | Total cases | 40 |
 | Pass rate | 87.5% |
 | Blocker cases | 5 |
-| Avg L1 (task completion) | 0.92 |
-| Avg L4 (state isolation) | 0.78 |
-| Avg L5 (safety) | 0.95 |
-| Attribution: `llm_decomposition_error` | 12 cases |
-| Attribution: `color_loss` | 6 cases |
-| Attribution: `field_missing` | 4 cases |
-| Attribution: `correct` | 18 cases |
-| Avg latency | 2.3s |
-| Total cost | $1.87 |
+| Avg L1 (task completion) | 0.90 |
+| Avg L2 (trajectory) | 0.97 |
+| Avg L3 (card quality) | 0.93 |
+| Avg L4 (state isolation) | 0.99 |
+| Avg L5 (safety) | 0.93 |
+| Avg L6 (stability) | 0.98 |
 
-### Sheet 2 · Per-case detail (color-coded)
+Attribution distribution:
 
-| Case ID | Query | L1 | L2 | L3 | L4 | L5 | L6 | Attribution | Blocker |
-|---------|-------|---:|---:|---:|---:|---:|---:|-------------|---------|
-| c_0001 | "Summarize this brand PDF" | 1.0 | 1.0 | 0.9 | 1.0 | 1.0 | 1.0 | `correct` | — |
-| c_0007 | "Find non-麻 material tops" | 1.0 | 1.0 | 0.4 | 1.0 | 1.0 | 0.9 | `color_loss` | L3 |
-| c_0019 | (Brand A + Brand B in same session) | 1.0 | 0.0 | — | — | — | — | `state_contamination` | L2 |
-
-### Sheet 3 · Blocker analysis
-
-| Blocker case | Root cause | Suggested fix |
-|--------------|-----------|----------------|
-| c_0007 | "麻灰色" misread as material "麻" | Add color-material disambiguation to LLM prompt |
-| c_0019 | Session asset read from latest, not session-bound | Bind asset to sessionId (P0 fix) |
+| Level | Count |
+|-------|------:|
+| `correct` | 34 |
+| `color_loss` | 3 |
+| `interface_exception` | 1 |
+| `scene_missing` | 1 |
+| `llm_decomposition_error` | 1 |
 
 ---
 
-## Impact at Style3D
+## The 40-item golden test set
 
-| Metric | Before | After |
-|--------|--------|------|
-| Single-round eval time | 1-2 days manual triage | minutes (automated) |
-| Pre-release regression rounds | 0 (couldn't afford the time) | **60 rounds** |
-| P0 failures caught pre-release | ad-hoc | **0 escapes** |
-| Prompt leaks caught | 0 (we didn't even check) | caught every time |
-| Team regression culture | "did it break anything?" | "run the golden set first" |
+Not random prompts. A **deliberately adversarial** set targeting specific failure modes:
 
-The framework was subsequently used as the **gating mechanism** for every prompt iteration and retrieval strategy change.
+| Category | Count | What it catches |
+|----------|------:|----------------|
+| Happy path | 10 | Baseline — does it work at all? |
+| Ambiguity recognition | 6 | Does it ask for clarification vs. guess wrong? |
+| Brand / memory sensitivity | 6 | Does it confuse Customer A's brand with Customer B? |
+| Retrieval governance | 10 | NOT-logic, color disambiguation (麻灰 vs 麻), zero-result |
+| State continuity | 8 | Multi-turn state, session switching, asset binding |
+
+---
+
+## Who is this for?
+
+- **AI Agent product PMs** — need a quality gate before releasing Agent changes
+- **Agent team Tech Leads / QA** — want automated regression instead of manual triage
+- **Consultants** — standardize Agent evaluation across client projects
+- **Learners** — study how production-grade Agent evaluation works
+
+**If you're building a multi-stage Agent and want to evaluate it properly — let's talk.** Open an issue or reach out on Twitter [@IrPVxuhLl557167](https://twitter.com/IrPVxuhLl557167).
+
+---
+
+## Project background
+
+Built while interning at Style3D on a multi-stage AI Agent (vision → brand enrichment → memory → retrieval → PPT generation). Every prompt change meant manual triage — 1-2 days of "did this break anything?" That's not engineering. That's gambling.
+
+After researching LangSmith (too heavy, SaaS-locked), AgentBench (academic, final-result-only), and OpenAI Evals (too generic for multi-step Agents), I designed AgentLens from scratch: a layered evaluation framework inspired by medical imaging (CT scan) and software regression testing (gating mechanism).
+
+The 8-level attribution came from analyzing 91+ real test cases across 4 rounds of iteration — each level maps to a different fix owner, so the report doesn't just say "failed," it says *who needs to fix it*.
+
+Inspired by the [AdaRubric](https://github.com/alphadl/AdaRubrics) paper's task-adaptive rubric scoring concept and Krippendorff's alpha for inter-rater reliability.
 
 ---
 
 ## Roadmap
 
-This is the **sanitized open-source version** of the internal tool. The internal version has Style3D-specific business logic; this repo aims to be a reusable framework for any multi-stage Agent.
-
-- [x] 6-layer evaluation framework
-- [x] 40-item golden test set schema
-- [x] 8-level attribution engine
-- [x] xlsx report generation
-- [ ] **Generalize beyond Style-Claw** — currently the L3 card-quality metrics are Style-Claw-specific
-- [ ] **LLM-as-Judge integration** — let a judge model score L3 card quality automatically
-- [ ] **Regression diff view** — visual comparison between two eval runs
-- [ ] **Community golden set** — let other vertical-industry Agent teams contribute test cases
-
-If you're building a multi-stage Agent in a vertical industry and want to evaluate it properly, I want to talk to you. The 8-level attribution framework generalizes better than you'd expect.
+- [x] 6-layer evaluation framework (L1-L6)
+- [x] 40-item golden test set
+- [x] 8-level error attribution waterfall
+- [x] xlsx 3-sheet report generation
+- [x] `--dry-run` mode (zero config)
+- [x] CI pipeline (GitHub Actions)
+- [ ] LLM-as-Judge integration for L3 card quality (DeepSeek API)
+- [ ] Krippendorff's alpha for LLM-as-Judge reliability
+- [ ] Regression diff view (compare two eval runs)
+- [ ] Web dashboard for report visualization
+- [ ] Community golden set — contribute your domain cases
 
 ---
 
-## Status
+## Architecture
 
-This is a sanitized version of the internal tool used at Style3D. Sensitive business logic, customer data, and Style3D-specific configurations have been removed. The framework, golden set design, and attribution engine are intact.
+```
+AgentLens/
+├── src/
+│   ├── core/
+│   │   ├── models.py          # EvalCase, AgentResponse, LayerScore, EvalResult
+│   │   ├── config.py          # YAML/JSON configuration
+│   │   ├── pipeline.py        # SixLayerEvaluator orchestrator
+│   │   └── report.py          # openpyxl 3-sheet xlsx generation
+│   ├── metrics/
+│   │   ├── task_completion.py # L1 — did it finish?
+│   │   ├── trajectory.py      # L2 — stage graph LCS matching
+│   │   ├── card_quality.py    # L3 — rule-based + LLM-as-Judge
+│   │   ├── state.py           # L4 — session/brand/asset isolation
+│   │   ├── safety.py          # L5 — prompt leak / fallback / PII
+│   │   └── stability.py       # L6 — latency / format / reproducibility
+│   ├── attribution/
+│   │   └── waterfall.py       # 8-level first-match-wins attribution
+│   ├── datasets/
+│   │   ├── golden_set.py      # 40 adversarial test cases
+│   │   └── loader.py           # JSON/YAML dataset loader
+│   ├── llm/
+│   │   ├── __init__.py         # OpenAI-compatible async client
+│   │   └── json_extract.py     # Robust JSON extraction from LLM output
+│   └── cli.py                 # --dry-run / --config entry point
+├── configs/
+│   ├── default.yaml           # Main config
+│   ├── rules.yaml             # Attribution rules (editable)
+│   └── rubric.yaml            # Layer weights and thresholds
+├── tests/                     # 15 tests, all passing
+├── examples/                  # Quick start scripts
+└── .github/workflows/ci.yml   # CI: lint + test + dry-run smoke
+```
+
+---
 
 ## License
 
 MIT — see [LICENSE](./LICENSE)
+
+## Acknowledgments
+
+- Rubric scoring concept inspired by [AdaRubric](https://github.com/alphadl/AdaRubrics) (Apache-2.0)
+- Krippendorff's alpha for LLM-as-Judge reliability (planned)
+- Built during internship at Style3D — the 8-level attribution came from real production failures

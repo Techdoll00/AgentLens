@@ -1,0 +1,60 @@
+# Attribution Rules Configuration
+# These rules define the 8-level error attribution waterfall.
+# First match wins — the order matters.
+
+attribution_levels:
+  - level: "interface_exception"
+    description: "The Agent never even got to think"
+    fix: "Check API availability, retry with backoff, increase timeout"
+
+  - level: "llm_decomposition_error"
+    description: "Vision/understanding stage produced garbage"
+    fix: "Improve LLM prompt clarity, add few-shot examples for query understanding"
+
+  - level: "color_loss"
+    description: "Color attribute dropped during extraction"
+    fix: "Add color-material disambiguation to LLM prompt (麻灰 vs 麻)"
+
+  - level: "percentage_loss"
+    description: "Numeric attribute dropped"
+    fix: "Add numeric extraction step with regex post-processing"
+
+  - level: "field_missing"
+    description: "Required field absent from structured output"
+    fix: "Add required field validation + fallback in output schema"
+
+  - level: "scene_missing"
+    description: "Style/scene context absent"
+    fix: "Enrich retrieval index with style/scene metadata"
+
+  - level: "correct_but_no_data"
+    description: "Correct query, inventory just doesn't have it"
+    fix: "Business decision: expand inventory or refine query constraints"
+
+  - level: "correct"
+    description: "Working as intended"
+    fix: "No fix needed — case working as intended"
+
+# Color terms to track for color_loss detection
+color_terms:
+  - "深蓝"
+  - "浅蓝"
+  - "深灰"
+  - "浅灰"
+  - "麻灰"
+  - "墨绿"
+  - "藏青"
+  - "卡其"
+  - "酒红"
+  - "宝蓝"
+  - "焦糖"
+  - "cream"
+  - "black"
+  - "white"
+  - "navy"
+
+# Brand names for state isolation checks
+brand_names:
+  - "BrandA"
+  - "BrandB"
+  - "BrandC"

@@ -1,0 +1,17 @@
+# AgentLens Configuration
+
+# LLM-as-Judge settings (for L3 card quality scoring)
+llm_enabled: false
+llm_model: "deepseek-chat"
+llm_base_url: "https://api.deepseek.com/v1"
+# llm_api_key: set via OPENAI_API_KEY env var
+
+# Concurrency
+max_concurrent: 5
+
+# Card scorer: "rule_based" or "llm_judge"
+card_scorer: "rule_based"
+
+# Output
+output_dir: "reports"
+dry_run: false
